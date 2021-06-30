@@ -34,5 +34,15 @@ module.exports = {
     output: {
         path: path.join(__dirname, 'prod/server'),
         filename: 'server.js'
-    }
+    },
+    resolve: {
+        fallback: {
+          "stream": require.resolve("stream-browserify"),
+          "crypto": require.resolve("crypto-browserify"),
+          "assert": require.resolve("assert/"),
+          "http": require.resolve("stream-http"),
+          "https": require.resolve("https-browserify"),
+          "os": require.resolve("os-browserify/browser")
+        }
+      },
 }
