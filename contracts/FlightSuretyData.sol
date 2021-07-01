@@ -9,6 +9,8 @@ contract FlightSuretyData {
 
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
+    mapping(address => bool) private authorizedContracts;
+    mapping(address => bool) private registeredAirlines;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -48,6 +50,14 @@ contract FlightSuretyData {
         _;
     }
 
+    /**
+     * @dev Modifiers that requires the caller to be authorised
+     */
+    modifier requireAuthorised(address _address) {
+        require(authorizedContracts[_address], "Not authorised to call the contract");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
@@ -61,6 +71,20 @@ contract FlightSuretyData {
         return operational;
     }
 
+    /**
+     * @dev Authorise the calling address
+     */
+    function authorizeCaller(address _address) public requireContractOwner {
+        authorizedContracts[_address] = true;
+    }
+
+    /**
+     * @dev Removes the authorisation for the address
+     */
+    function revokeAuthorisation(address _address) public requireContractOwner {
+        authorizedContracts[_address] = false;
+    }
+
 
     /**
     * @dev Sets contract operations on/off
@@ -69,6 +93,13 @@ contract FlightSuretyData {
     */    
     function setOperatingStatus(bool mode) external requireContractOwner {
         operational = mode;
+    }
+
+    /**
+     * @dev Checks if the airline is registered already
+     */
+    function isAirline(address _address) public view returns(bool) {
+        return registeredAirlines[_address];
     }
 
     /********************************************************************************************/
@@ -80,7 +111,8 @@ contract FlightSuretyData {
     *      Can only be called from FlightSuretyApp contract
     *
     */   
-    function registerAirline() external pure {
+    function registerAirline(address _address) external requireAuthorised(msg.sender) {
+        registeredAirlines[_address] = true;
     }
 
 
