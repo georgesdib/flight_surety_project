@@ -7,10 +7,13 @@ contract FlightSuretyData {
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
 
-    address private contractOwner;                                      // Account used to deploy contract
-    bool private operational = true;                                    // Blocks all state changes throughout the contract if false
+    address private contractOwner;                         // Account used to deploy contract
+    bool private operational = true;                       // Blocks all state changes throughout the contract if false
     mapping(address => bool) private authorizedContracts;
-    mapping(address => bool) private registeredAirlines;
+    mapping(address => uint8) private registeredAirlines;  // 0: not registered, 1: registered but have not paid
+                                                           // 2: registered and paid
+
+    uint256 private constant airlineFee = 10 ether;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -96,10 +99,10 @@ contract FlightSuretyData {
     }
 
     /**
-     * @dev Checks if the airline is registered already
+     * @dev Checks if the airline is registered and paid already
      */
     function isAirline(address _address) public view returns(bool) {
-        return registeredAirlines[_address];
+        return registeredAirlines[_address] == 2;
     }
 
     /********************************************************************************************/
@@ -111,23 +114,28 @@ contract FlightSuretyData {
     *      Can only be called from FlightSuretyApp contract
     *
     */   
-    function registerAirline(address _address) external requireAuthorised(msg.sender) {
-        registeredAirlines[_address] = true;
+    function registerAirline(address _address) external requireAuthorised(msg.sender) requireIsOperational {
+        registeredAirlines[_address] = 1;
     }
+
+    /**
+     * @dev purely for testing purposes
+     */
+    function testOperational() public requireIsOperational {}
 
 
    /**
     * @dev Buy insurance for a flight
     *
     */   
-    function buy() external payable {
+    function buy() external payable requireIsOperational {
 
     }
 
     /**
      *  @dev Credits payouts to insurees
     */
-    function creditInsurees() external pure {
+    function creditInsurees() external requireIsOperational {
     }
     
 
@@ -135,7 +143,7 @@ contract FlightSuretyData {
      *  @dev Transfers eligible payout funds to insuree
      *
     */
-    function pay() external pure {
+    function pay() external requireIsOperational {
     }
 
    /**
@@ -143,7 +151,11 @@ contract FlightSuretyData {
     *      resulting in insurance payouts, the contract should be self-sustaining
     *
     */   
-    function fund() public payable {
+    function fund() public payable requireIsOperational {
+        require(registeredAirlines[msg.sender] == 1, "You are either not registered or have paid already");
+        require(msg.value >= airlineFee, "Need to pay at least 10 ethere");
+
+        registeredAirlines[msg.sender] = 2;
     }
 
     function getFlightKey(address airline, string memory flight, uint256 timestamp) pure internal returns(bytes32) {
@@ -153,8 +165,9 @@ contract FlightSuretyData {
     /**
     * @dev Fallback function for funding smart contract.
     *
+    * No need to add requireIsOperational given it calls fund which requires it
     */
-    fallback() external payable {
+    receive() external payable {
         fund();
     }
 }
