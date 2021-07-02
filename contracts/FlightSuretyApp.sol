@@ -6,7 +6,7 @@ import "./FlightSuretyData.sol";
 /************************************************** */
 /* FlightSurety Smart Contract                      */
 /************************************************** */
-contract FlightSuretyApp {
+contract FlightSuretyApp is Ownable {
 
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
@@ -20,12 +20,10 @@ contract FlightSuretyApp {
     uint8 private constant STATUS_CODE_LATE_TECHNICAL = 40;
     uint8 private constant STATUS_CODE_LATE_OTHER = 50;
 
-    address private contractOwner;          // Account used to deploy contract
     bool private operational = true;
     FlightSuretyData private dataContract;
 
     struct Flight {
-        bool isRegistered;
         uint8 statusCode;
         uint256 updatedTimestamp;        
         address airline;
@@ -54,14 +52,6 @@ contract FlightSuretyApp {
     }
 
     /**
-    * @dev Modifier that requires the "ContractOwner" account to be the function caller
-    */
-    modifier requireContractOwner() {
-        require(msg.sender == contractOwner, "Caller is not contract owner");
-        _;
-    }
-
-    /**
      * @dev Modifier that requires that the caller is an airline
      */
     modifier requireAirline() {
@@ -79,7 +69,6 @@ contract FlightSuretyApp {
     * Takes the address of the dataContract and registers it
     */
     constructor (address payable _dataContract) {
-        contractOwner = msg.sender;
         dataContract = FlightSuretyData(_dataContract);
     }
 
@@ -101,7 +90,7 @@ contract FlightSuretyApp {
     *
     * When operational mode is disabled, all write transactions except for this one will fail
     */    
-    function setOperatingStatus(bool mode) external requireContractOwner {
+    function setOperatingStatus(bool mode) external onlyOwner {
         operational = mode;
     }
    
@@ -137,9 +126,28 @@ contract FlightSuretyApp {
    /**
     * @dev Register a future flight for insuring.
     *
+    * @param flightTime time of the flight
+    * @param flightName codenumber of the flight
     */  
-    function registerFlight() external requireIsOperational {
+    function registerFlight(uint256 flightTime, bytes32 flightName) external requireIsOperational {
+        Flight storage flight = flights[flightName];
 
+        flight.statusCode = STATUS_CODE_UNKNOWN;
+        flight.updatedTimestamp = flightTime;
+        flight.airline = msg.sender;
+
+        emit FlightRegistered(flightName, flightTime, msg.sender);
+    }
+
+    /**
+     * @dev Passenger buys an insurance for a flight
+     *
+     * @param flightName codename of the flight to be insured
+     */
+    function buyInsurance(bytes32 flightName) external payable requireIsOperational {
+        require(flights[flightName].statusCode == STATUS_CODE_UNKNOWN,
+            "Cannot buy insurance on a flight that has already departed");
+        dataContract.buy{value: msg.value}(msg.sender, flightName);
     }
     
    /**
@@ -158,14 +166,20 @@ contract FlightSuretyApp {
         uint8 index = getRandomIndex(msg.sender);
 
         // Generate a unique key for storing the request
-        bytes32 key = keccak256(abi.encodePacked(index, airline, flight, timestamp));
+        bytes32 key = getFlightKey(index, airline, flight, timestamp);
         ResponseInfo storage newResponse = oracleResponses[key];
         newResponse.requester = msg.sender;
         newResponse.isOpen = true;
 
         emit OracleRequest(index, airline, flight, timestamp);
-    } 
+    }
 
+    /**
+     * @dev Funds the airline
+     */
+    function fundAirline() external payable requireIsOperational {
+        dataContract.fund{value: msg.value}(msg.sender);
+    }
 
 // region ORACLE MANAGEMENT
 
@@ -210,6 +224,8 @@ contract FlightSuretyApp {
     // they fetch data and submit a response
     event OracleRequest(uint8 index, address airline, string flight, uint256 timestamp);
 
+    event FlightRegistered(bytes32 flight, uint256 timestamp, address airline);
+
 
     // Register an oracle with the contract
     function registerOracle() external payable requireIsOperational {
@@ -245,7 +261,7 @@ contract FlightSuretyApp {
                 "Index does not match oracle request");
 
 
-        bytes32 key = keccak256(abi.encodePacked(index, airline, flight, timestamp)); 
+        bytes32 key = getFlightKey(index, airline, flight, timestamp);
         require(oracleResponses[key].isOpen, "Flight or timestamp do not match oracle request");
 
         oracleResponses[key].responses[statusCode].push(msg.sender);
@@ -263,8 +279,11 @@ contract FlightSuretyApp {
     }
 
 
-    function getFlightKey(address airline, string memory flight, uint256 timestamp) pure internal returns(bytes32) {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
+    function getFlightKey(uint8 index,
+                          address airline,
+                          string memory flight,
+                          uint256 timestamp) pure internal returns(bytes32) {
+        return keccak256(abi.encodePacked(index, airline, flight, timestamp));
     }
 
     // Returns array of three non-duplicating integers from 0-9

@@ -1,19 +1,22 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.6;
 
-contract FlightSuretyData {
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract FlightSuretyData is Ownable {
 
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
 
-    address private contractOwner;                         // Account used to deploy contract
     bool private operational = true;                       // Blocks all state changes throughout the contract if false
     mapping(address => bool) private authorizedContracts;
     mapping(address => uint8) private registeredAirlines;  // 0: not registered, 1: registered but have not paid
                                                            // 2: registered and paid
+    mapping(address => mapping(bytes32 => uint256)) insurances;
 
     uint256 private constant airlineFee = 10 ether;
+    uint256 private constant maxInsuranceFee = 1 ether;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -25,7 +28,6 @@ contract FlightSuretyData {
     *      The deploying account becomes contractOwner
     */
     constructor() {
-        contractOwner = msg.sender;
     }
 
     /********************************************************************************************/
@@ -46,18 +48,10 @@ contract FlightSuretyData {
     }
 
     /**
-    * @dev Modifier that requires the "ContractOwner" account to be the function caller
-    */
-    modifier requireContractOwner() {
-        require(msg.sender == contractOwner, "Caller is not contract owner");
-        _;
-    }
-
-    /**
      * @dev Modifiers that requires the caller to be authorised
      */
-    modifier requireAuthorised(address _address) {
-        require(authorizedContracts[_address], "Not authorised to call the contract");
+    modifier requireAuthorised() {
+        require(authorizedContracts[msg.sender], "Not authorised to call the contract");
         _;
     }
 
@@ -77,14 +71,14 @@ contract FlightSuretyData {
     /**
      * @dev Authorise the calling address
      */
-    function authorizeCaller(address _address) public requireContractOwner {
+    function authorizeCaller(address _address) public onlyOwner {
         authorizedContracts[_address] = true;
     }
 
     /**
      * @dev Removes the authorisation for the address
      */
-    function revokeAuthorisation(address _address) public requireContractOwner {
+    function revokeAuthorisation(address _address) public onlyOwner {
         authorizedContracts[_address] = false;
     }
 
@@ -94,7 +88,7 @@ contract FlightSuretyData {
     *
     * When operational mode is disabled, all write transactions except for this one will fail
     */    
-    function setOperatingStatus(bool mode) external requireContractOwner {
+    function setOperatingStatus(bool mode) external onlyOwner {
         operational = mode;
     }
 
@@ -114,7 +108,7 @@ contract FlightSuretyData {
     *      Can only be called from FlightSuretyApp contract
     *
     */   
-    function registerAirline(address _address) external requireAuthorised(msg.sender) requireIsOperational {
+    function registerAirline(address _address) external requireAuthorised requireIsOperational {
         registeredAirlines[_address] = 1;
     }
 
@@ -124,12 +118,17 @@ contract FlightSuretyData {
     function testOperational() public requireIsOperational {}
 
 
-   /**
-    * @dev Buy insurance for a flight
-    *
-    */   
-    function buy() external payable requireIsOperational {
+    /**
+     * @dev Buy insurance for a flight
+     *
+     * @param passenger address of the passenger buying the insurance
+     * @param flight name of the flight to be insured
+     *
+     */   
+    function buy(address passenger, bytes32 flight) external payable requireAuthorised requireIsOperational {
+        require(msg.value <= maxInsuranceFee, "Maximum insurance fee of 1 ether");
 
+        insurances[passenger][flight] = msg.value;
     }
 
     /**
@@ -151,11 +150,11 @@ contract FlightSuretyData {
     *      resulting in insurance payouts, the contract should be self-sustaining
     *
     */   
-    function fund() public payable requireIsOperational {
-        require(registeredAirlines[msg.sender] == 1, "You are either not registered or have paid already");
-        require(msg.value >= airlineFee, "Need to pay at least 10 ethere");
+    function fund(address airline) public payable requireIsOperational requireAuthorised {
+        require(registeredAirlines[airline] == 1, "You are either not registered or have paid already");
+        require(msg.value >= airlineFee, "Need to pay at least 10 ether");
 
-        registeredAirlines[msg.sender] = 2;
+        registeredAirlines[airline] = 2;
     }
 
     function getFlightKey(address airline, string memory flight, uint256 timestamp) pure internal returns(bytes32) {
@@ -167,8 +166,8 @@ contract FlightSuretyData {
     *
     * No need to add requireIsOperational given it calls fund which requires it
     */
-    receive() external payable {
-        fund();
+    receive() external payable requireIsOperational {
+        fund(msg.sender);
     }
 }
 

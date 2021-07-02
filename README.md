@@ -50,3 +50,8 @@ Deploy the contents of the ./dapp folder
 * [Solidity Language Reference](http://solidity.readthedocs.io/en/v0.4.24/)
 * [Ethereum Blockchain Explorer](https://etherscan.io/)
 * [Web3Js Reference](https://github.com/ethereum/wiki/wiki/JavaScript-API)
+
+# Project Commentary
+Cannot add airline at App constructor level, because to add an airline you need to be authorized to interact with the Data contract. However, it's impossible for the App contract to be authorized with Data contract before it's even constructed.
+
+I used openzeppelin contracts for the ownable interface.

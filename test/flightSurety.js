@@ -1,6 +1,5 @@
 
 var Test = require('../config/testConfig.js');
-var BigNumber = require('big-number');
 const assert = require('assert');
 
 contract('Flight Surety Tests', async (accounts) => {
@@ -10,7 +9,7 @@ contract('Flight Surety Tests', async (accounts) => {
     config = await Test.Config(accounts);
     await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
     await config.flightSuretyApp.registerAirline(config.firstAirline);
-    await config.flightSuretyData.fund({from: config.firstAirline, value: 10000000000000000000 }); //10 ether
+    await config.flightSuretyApp.fundAirline({from: config.firstAirline, value: web3.utils.toWei("10", "ether")});
   });
 
   /****************************************************************************************/
@@ -85,6 +84,17 @@ contract('Flight Surety Tests', async (accounts) => {
 
     // ASSERT
     assert(!result, "Airline should not be able to register another airline if it hasn't provided funding");
+
+  });
+
+  it('(airline) can register a flight using registerFlight() and passenger buys insurance', async () => {
+    
+    // ARRANGE
+    let passenger = accounts[3];
+
+    // ACT
+    await config.flightSuretyApp.registerFlight(1, web3.utils.fromAscii("Test"), {from: config.firstAirline});
+    await config.flightSuretyApp.buyInsurance(web3.utils.fromAscii("Test"), {from: passenger, value: web3.utils.toWei("0.5", "ether")});
 
   });
  
