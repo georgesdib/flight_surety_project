@@ -158,6 +158,9 @@ contract FlightSuretyData is Ownable {
             insurancePayouts[insurances[flight][i].insuredPassenger] = 
                 insurances[flight][i].insuredAmount * 3 / 2; //1.5 multiplier
         }
+
+        // Clean up the insurance
+        delete insurances[flight];
     }
     
 
@@ -169,7 +172,7 @@ contract FlightSuretyData is Ownable {
     function pay(address payable insured) external requireIsOperational requireAuthorised {
         uint256 insuranceValue = insurancePayouts[insured];
         require(insuranceValue > 0, "No funds to pay");
-        insurancePayouts[insured] = 0;
+        delete insurancePayouts[insured];
         insured.transfer(insuranceValue);
     }
 

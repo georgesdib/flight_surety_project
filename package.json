@@ -23,7 +23,7 @@
     "@truffle/hdwallet-provider": "^1.4.1",
     "assert": "^2.0.0",
     "babel-loader": "^8.2.2",
-    "big-number": "^2.0.0",
+    "bn": "^1.0.5",
     "css-loader": "^5.2.6",
     "electron": "^13.1.4",
     "express": "^4.17.1",

@@ -62,3 +62,9 @@ Truffle v5.3.13 (core: 5.3.13)
 Solidity - 0.8.6 (solc-js)
 Node v16.4.0
 Web3.js v1.3.6
+
+
+Talk about bug in nonce
+
+
+mention the websocket thing

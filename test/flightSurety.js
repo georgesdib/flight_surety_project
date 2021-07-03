@@ -85,20 +85,6 @@ contract('Flight Surety Tests', async (accounts) => {
     assert(!result, "Airline should not be able to register another airline if it hasn't provided funding");
 
   });
-
-  it('(airline) can register a flight using registerFlight() and passenger buys insurance', async () => {
-    
-    // ARRANGE
-    let passenger = accounts[3];
-    let flight = 'ND1309'; // Course number
-    let timestamp = Math.floor(Date.now() / 1000);
-
-    // ACT
-    await config.flightSuretyApp.registerFlight(flight, timestamp, {from: config.firstAirline});
-    await config.flightSuretyApp.buyInsurance(config.firstAirline, flight, timestamp,
-      {from: passenger, value: web3.utils.toWei("0.5", "ether")});
-
-  });
  
 
 });

@@ -36,6 +36,7 @@ contract FlightSuretyApp is Ownable {
 
     event InsuranceClaimPaid(address);
     event FlightRegistered(string flight, uint256 timestamp, address airline);
+    event InsuranceBought(address airline, string flightName, uint256 flightTime, address customer);
  
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -164,6 +165,8 @@ contract FlightSuretyApp is Ownable {
             "Cannot buy insurance on a flight that has already departed");
 
         dataContract.buy{value: msg.value}(msg.sender, key);
+
+        emit InsuranceBought(airline, flightName, flightTime, msg.sender);
     }
 
     /**
@@ -198,7 +201,7 @@ contract FlightSuretyApp is Ownable {
 
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus(address airline, string memory flight, uint256 timestamp) external requireIsOperational {
-        uint8 index = getRandomIndex(msg.sender);
+        uint8 index = getRandomIndex(msg.sender, 0);
 
         // Generate a unique key for storing the request
         bytes32 key = getFlightKey(index, airline, flight, timestamp);
@@ -219,7 +222,7 @@ contract FlightSuretyApp is Ownable {
 // region ORACLE MANAGEMENT
 
     // Incremented to add pseudo-randomness at various points
-    uint8 private nonce = 0;    
+    //uint8 private nonce = 0;    
 
     // Fee to be paid when registering oracle
     uint256 public constant REGISTRATION_FEE = 1 ether;
@@ -326,33 +329,43 @@ contract FlightSuretyApp is Ownable {
     }
 
     // Returns array of three non-duplicating integers from 0-9
-    function generateIndexes(address account) internal returns(uint8[3] memory) {
+    function generateIndexes(address account) internal view returns(uint8[3] memory) {
         uint8[3] memory indexes;
-        indexes[0] = getRandomIndex(account);
+        uint8 nonce = 0;
+        indexes[0] = getRandomIndex(account, nonce++);
         
         indexes[1] = indexes[0];
         while(indexes[1] == indexes[0]) {
-            indexes[1] = getRandomIndex(account);
+            indexes[1] = getRandomIndex(account, nonce++);
+            if (nonce == 250) { // Break the cycle here and give up
+                break;
+            }
+
         }
 
         indexes[2] = indexes[1];
         while((indexes[2] == indexes[0]) || (indexes[2] == indexes[1])) {
-            indexes[2] = getRandomIndex(account);
+            indexes[2] = getRandomIndex(account, nonce++);
+            if (nonce > 250) {
+                break;
+            }
         }
 
         return indexes;
     }
 
     // Returns array of three non-duplicating integers from 0-9
-    function getRandomIndex(address account) internal returns (uint8) {
+    function getRandomIndex(address account, uint8 nonce) internal view returns (uint8) {
         uint8 maxValue = 10;
 
         // Pseudo random number...the incrementing nonce adds variation
-        uint8 random = uint8(uint256(keccak256(abi.encodePacked(blockhash(block.number - nonce++), account))) % maxValue);
+        // This actually causes bugs because nonce can become bigger than block.number
+        //uint8 random = uint8(uint256(keccak256(abi.encodePacked(blockhash(block.number - nonce++), account))) % maxValue);
+        uint8 random = uint8(uint256(keccak256(abi.encodePacked(blockhash(block.number - nonce), account))) % maxValue);
 
-        if (nonce > 250) {
-            nonce = 0;  // Can only fetch blockhashes for last 256 blocks so we adapt
-        }
+        //if (nonce > 250) {
+        //    nonce = 0;  // Can only fetch blockhashes for last 256 blocks so we adapt
+        //}
 
         return random;
     }
