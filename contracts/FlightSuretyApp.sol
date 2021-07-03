@@ -32,7 +32,7 @@ contract FlightSuretyApp is Ownable {
     mapping(bytes32 => Flight) private flights;
 
     mapping(address => uint8) private airlines;
-    uint256 private totalNumberAirlines;
+    uint256 private totalNumberAirlines = 1; // We always start with one airline registered
 
     event InsuranceClaimPaid(address);
     event FlightRegistered(string flight, uint256 timestamp, address airline);
@@ -58,7 +58,7 @@ contract FlightSuretyApp is Ownable {
      * @dev Modifier that requires that the caller is an airline
      */
     modifier requireAirline() {
-        require(dataContract.isAirline(msg.sender) || totalNumberAirlines == 0, "Not an airline");
+        require(dataContract.isAirline(msg.sender), "Not an airline");
         _;
     }
 
@@ -252,7 +252,7 @@ contract FlightSuretyApp is Ownable {
     // Event fired each time an oracle submits a response
     event FlightStatusInfo(address airline, string flight, uint256 timestamp, uint8 status);
 
-    event OracleReport(address airline, string flight, uint256 timestamp, uint8 status);
+    event OracleReport(address airline, string flight, uint256 timestamp, uint8 status, uint256 nbVotes);
 
     // Event fired when flight status request is submitted
     // Oracles track this and if they have a matching index
@@ -301,7 +301,7 @@ contract FlightSuretyApp is Ownable {
 
         // Information isn't considered verified until at least MIN_RESPONSES
         // oracles respond with the *** same *** information
-        emit OracleReport(airline, flight, timestamp, statusCode);
+        emit OracleReport(airline, flight, timestamp, statusCode, oracleResponses[key].responses[statusCode].length);
         if (oracleResponses[key].responses[statusCode].length >= MIN_RESPONSES) {
 
             emit FlightStatusInfo(airline, flight, timestamp, statusCode);

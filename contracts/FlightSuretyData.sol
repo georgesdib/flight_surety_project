@@ -33,7 +33,8 @@ contract FlightSuretyData is Ownable {
     * @dev Constructor
     *      The deploying account becomes contractOwner
     */
-    constructor() {
+    constructor(address firstAirline) {
+        _registerAirline(firstAirline);
     }
 
     /********************************************************************************************/
@@ -115,6 +116,10 @@ contract FlightSuretyData is Ownable {
     *
     */   
     function registerAirline(address _address) external requireAuthorised requireIsOperational {
+        _registerAirline(_address);
+    }
+
+    function _registerAirline(address _address) private {
         registeredAirlines[_address] = 1;
     }
 

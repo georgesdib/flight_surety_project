@@ -55,3 +55,10 @@ Deploy the contents of the ./dapp folder
 Cannot add airline at App constructor level, because to add an airline you need to be authorized to interact with the Data contract. However, it's impossible for the App contract to be authorized with Data contract before it's even constructed.
 
 I used openzeppelin contracts for the ownable interface.
+
+Versions I am using:
+
+Truffle v5.3.13 (core: 5.3.13)
+Solidity - 0.8.6 (solc-js)
+Node v16.4.0
+Web3.js v1.3.6
