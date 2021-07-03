@@ -24,8 +24,9 @@ contract FlightSuretyApp is Ownable {
     FlightSuretyData private dataContract;
 
     struct Flight {
+        bool isRegistered;
         uint8 statusCode;
-        uint256 updatedTimestamp;        
+        uint256 updatedTimestamp;
         address airline;
     }
     mapping(bytes32 => Flight) private flights;
@@ -33,6 +34,8 @@ contract FlightSuretyApp is Ownable {
     mapping(address => uint8) private airlines;
     uint256 private totalNumberAirlines;
 
+    event InsuranceClaimPaid(address);
+    event FlightRegistered(string flight, uint256 timestamp, address airline);
  
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -80,12 +83,7 @@ contract FlightSuretyApp is Ownable {
         return operational;
     }
 
-    /********************************************************************************************/
-    /*                                     SMART CONTRACT FUNCTIONS                             */
-    /********************************************************************************************/
-
-  
-   /**
+    /**
     * @dev Sets contract operations on/off
     *
     * When operational mode is disabled, all write transactions except for this one will fail
@@ -93,6 +91,10 @@ contract FlightSuretyApp is Ownable {
     function setOperatingStatus(bool mode) external onlyOwner {
         operational = mode;
     }
+
+    /********************************************************************************************/
+    /*                                     SMART CONTRACT FUNCTIONS                             */
+    /********************************************************************************************/
    
    /**
     * @dev Add an airline to the registration queue
@@ -126,12 +128,18 @@ contract FlightSuretyApp is Ownable {
    /**
     * @dev Register a future flight for insuring.
     *
-    * @param flightTime time of the flight
     * @param flightName codenumber of the flight
+    * @param flightTime time of the flight
+    *
+    * The sender should be the airline registering the flight
     */  
-    function registerFlight(uint256 flightTime, bytes32 flightName) external requireIsOperational {
-        Flight storage flight = flights[flightName];
+    function registerFlight(string memory flightName, uint256 flightTime) external requireIsOperational {
+        require(dataContract.isAirline(msg.sender), "Only an airline can register a flight");
 
+        bytes32 key = getFlightKey(msg.sender, flightName, flightTime);
+        Flight storage flight = flights[key];
+
+        flight.isRegistered = true;
         flight.statusCode = STATUS_CODE_UNKNOWN;
         flight.updatedTimestamp = flightTime;
         flight.airline = msg.sender;
@@ -141,13 +149,30 @@ contract FlightSuretyApp is Ownable {
 
     /**
      * @dev Passenger buys an insurance for a flight
+     * sender is the passenger
      *
      * @param flightName codename of the flight to be insured
      */
-    function buyInsurance(bytes32 flightName) external payable requireIsOperational {
-        require(flights[flightName].statusCode == STATUS_CODE_UNKNOWN,
+    function buyInsurance(address airline,
+                          string memory flightName,
+                          uint256 flightTime) external payable requireIsOperational {
+
+        bytes32 key = getFlightKey(airline, flightName, flightTime);
+
+        require(flights[key].isRegistered, "Flight not registered");
+        require(flights[key].statusCode == STATUS_CODE_UNKNOWN,
             "Cannot buy insurance on a flight that has already departed");
-        dataContract.buy{value: msg.value}(msg.sender, flightName);
+
+        dataContract.buy{value: msg.value}(msg.sender, key);
+    }
+
+    /**
+     * @dev Passenger (who is the sender of the call) claims the insurance payout
+     */
+    function claimInsurance() external requireIsOperational {
+        dataContract.pay(payable(msg.sender));
+
+        emit InsuranceClaimPaid(msg.sender);
     }
     
    /**
@@ -158,6 +183,16 @@ contract FlightSuretyApp is Ownable {
                                  string memory flight,
                                  uint256 timestamp,
                                  uint8 statusCode) internal requireIsOperational {
+
+        bytes32 key = getFlightKey(airline, flight, timestamp);
+        require(flights[key].isRegistered, "Flight not registered");
+
+        flights[key].statusCode = statusCode;
+
+        if (statusCode == STATUS_CODE_LATE_AIRLINE) {
+            // Check if passenger has insurance and pay out if so
+            dataContract.creditInsurees(key);
+        }
     }
 
 
@@ -224,8 +259,6 @@ contract FlightSuretyApp is Ownable {
     // they fetch data and submit a response
     event OracleRequest(uint8 index, address airline, string flight, uint256 timestamp);
 
-    event FlightRegistered(bytes32 flight, uint256 timestamp, address airline);
-
 
     // Register an oracle with the contract
     function registerOracle() external payable requireIsOperational {
@@ -284,6 +317,12 @@ contract FlightSuretyApp is Ownable {
                           string memory flight,
                           uint256 timestamp) pure internal returns(bytes32) {
         return keccak256(abi.encodePacked(index, airline, flight, timestamp));
+    }
+
+    function getFlightKey(address airline,
+                          string memory flight,
+                          uint256 timestamp) pure internal returns(bytes32) {
+        return keccak256(abi.encodePacked(airline, flight, timestamp));
     }
 
     // Returns array of three non-duplicating integers from 0-9

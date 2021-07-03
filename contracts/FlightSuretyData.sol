@@ -9,11 +9,17 @@ contract FlightSuretyData is Ownable {
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
 
+    struct InsuranceAgreement {
+        address insuredPassenger;
+        uint256 insuredAmount;
+    }
+    
     bool private operational = true;                       // Blocks all state changes throughout the contract if false
     mapping(address => bool) private authorizedContracts;
     mapping(address => uint8) private registeredAirlines;  // 0: not registered, 1: registered but have not paid
                                                            // 2: registered and paid
-    mapping(address => mapping(bytes32 => uint256)) insurances;
+    mapping(bytes32 => InsuranceAgreement[]) insurances;
+    mapping(address => uint256) insurancePayouts;
 
     uint256 private constant airlineFee = 10 ether;
     uint256 private constant maxInsuranceFee = 1 ether;
@@ -128,21 +134,38 @@ contract FlightSuretyData is Ownable {
     function buy(address passenger, bytes32 flight) external payable requireAuthorised requireIsOperational {
         require(msg.value <= maxInsuranceFee, "Maximum insurance fee of 1 ether");
 
-        insurances[passenger][flight] = msg.value;
+        InsuranceAgreement memory agreement = InsuranceAgreement({
+            insuredPassenger: passenger,
+            insuredAmount: msg.value
+        });
+        
+        insurances[flight].push(agreement);
     }
 
     /**
      *  @dev Credits payouts to insurees
+     *
+     * @param flight the flight key for which we are claiming insurance
     */
-    function creditInsurees() external requireIsOperational {
+    function creditInsurees(bytes32 flight) external requireIsOperational requireAuthorised {
+        uint arrayLength = insurances[flight].length;
+        for (uint i = 0; i < arrayLength; i++) {
+            insurancePayouts[insurances[flight][i].insuredPassenger] = 
+                insurances[flight][i].insuredAmount * 3 / 2; //1.5 multiplier
+        }
     }
     
 
     /**
      *  @dev Transfers eligible payout funds to insuree
      *
+     * @param insured the insured passenger to be paid
     */
-    function pay() external requireIsOperational {
+    function pay(address payable insured) external requireIsOperational requireAuthorised {
+        uint256 insuranceValue = insurancePayouts[insured];
+        require(insuranceValue > 0, "No funds to pay");
+        insurancePayouts[insured] = 0;
+        insured.transfer(insuranceValue);
     }
 
    /**

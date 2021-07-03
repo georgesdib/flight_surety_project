@@ -91,10 +91,13 @@ contract('Flight Surety Tests', async (accounts) => {
     
     // ARRANGE
     let passenger = accounts[3];
+    let flight = 'ND1309'; // Course number
+    let timestamp = Math.floor(Date.now() / 1000);
 
     // ACT
-    await config.flightSuretyApp.registerFlight(1, web3.utils.fromAscii("Test"), {from: config.firstAirline});
-    await config.flightSuretyApp.buyInsurance(web3.utils.fromAscii("Test"), {from: passenger, value: web3.utils.toWei("0.5", "ether")});
+    await config.flightSuretyApp.registerFlight(flight, timestamp, {from: config.firstAirline});
+    await config.flightSuretyApp.buyInsurance(config.firstAirline, flight, timestamp,
+      {from: passenger, value: web3.utils.toWei("0.5", "ether")});
 
   });
  
