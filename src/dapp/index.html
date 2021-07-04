@@ -21,7 +21,23 @@
 
     <main class="container">
 
+        <div class="widgets-container">
+            <div>
+                <h2>App Contract Operational Status</h2>
+                <label><input type="radio" name="app-operational-status" id="app-operational">Operational</label>
+                <label><input type="radio" name="app-operational-status" id="app-not-operational">Not Operational</label>
+            </div>
+            <div>
+                <h2>Data Contract Operational Status</h2>
+                <label><input type="radio" name="data-operational-status" id='data-operational'>Operational</label>
+                <label><input type="radio" name="data-operational-status" id='data-not-operational'>Not Operational</label>
+            </div>
+        </div>
         <div id="display-wrapper" class="top-20">
+        </div>
+        <btn class="btn btn-primary" id="fund-airline">Fund Airline</btn>
+        <div class="row top-20">
+            <label class="form">Airline</label> <input type="text" id="airline-address"> <btn class="btn btn-primary" id="register-airline">Register Airline</btn>
         </div>
         <div class="row top-20">
             <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>

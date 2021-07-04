@@ -43,5 +43,6 @@ module.exports = {
           "https": require.resolve("https-browserify"),
           "os": require.resolve("os-browserify/browser")
         }
-      },
+    },
+    mode: 'development'
 }

@@ -74,6 +74,16 @@ contract('Oracles', async (accounts) => {
     });
     assert(eventTriggered, "Event FlightRegistered not emitted");
 
+    // Fail to purcahase insurance if more than 1 ethere
+    let failed = false;
+    try {
+      await config.flightSuretyApp.buyInsurance(config.firstAirline, flight, timestamp,
+        { from: passenger, value: web3.utils.toWei("1.000001", "ether") });
+    } catch (e) {
+      failed = true;
+    }
+    assert(failed, "Cannot purchase an insurance worth more than 1 ether");
+    
     // Purchase insurance
     await config.flightSuretyApp.buyInsurance(config.firstAirline, flight, timestamp,
       { from: passenger, value: web3.utils.toWei("0.5", "ether") });

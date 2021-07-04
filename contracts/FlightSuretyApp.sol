@@ -36,6 +36,8 @@ contract FlightSuretyApp is Ownable {
 
     event InsuranceClaimPaid(address);
     event FlightRegistered(string flight, uint256 timestamp, address airline);
+    event AirlineRegistered(address airline);
+    event AirlinePreRegistered(address airline, uint8 votes);
     event InsuranceBought(address airline, string flightName, uint256 flightTime, address customer);
  
     /********************************************************************************************/
@@ -117,12 +119,14 @@ contract FlightSuretyApp is Ownable {
             return (true, airlines[airline]);
         }
 
+        emit AirlinePreRegistered(airline, airlines[airline]);
         return (false, airlines[airline]);
     }
 
     function _registerAirline(address airline) internal {
         dataContract.registerAirline(airline);
         totalNumberAirlines++;
+        emit AirlineRegistered(airline);
     }
 
 

@@ -24,6 +24,9 @@ contract FlightSuretyData is Ownable {
     uint256 private constant airlineFee = 10 ether;
     uint256 private constant maxInsuranceFee = 1 ether;
 
+    event AirlineRegistered(address airline);
+    event AirlineFunded(address airline);
+
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
@@ -117,6 +120,7 @@ contract FlightSuretyData is Ownable {
     */   
     function registerAirline(address _address) external requireAuthorised requireIsOperational {
         _registerAirline(_address);
+        emit AirlineRegistered(_address);
     }
 
     function _registerAirline(address _address) private {
@@ -182,10 +186,14 @@ contract FlightSuretyData is Ownable {
     *
     */   
     function fund(address airline) public payable requireIsOperational requireAuthorised {
-        require(registeredAirlines[airline] == 1, "You are either not registered or have paid already");
+        if (registeredAirlines[airline] == 0){
+            revert("Airline not registered yet");
+        }
+        require(registeredAirlines[airline] == 1, "You have paid already");
         require(msg.value >= airlineFee, "Need to pay at least 10 ether");
 
         registeredAirlines[airline] = 2;
+        emit AirlineFunded(airline);
     }
 
     function getFlightKey(address airline, string memory flight, uint256 timestamp) pure internal returns(bytes32) {
