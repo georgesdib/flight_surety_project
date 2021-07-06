@@ -83,7 +83,7 @@ contract('Oracles', async (accounts) => {
       failed = true;
     }
     assert(failed, "Cannot purchase an insurance worth more than 1 ether");
-    
+
     // Purchase insurance
     await config.flightSuretyApp.buyInsurance(config.firstAirline, flight, timestamp,
       { from: passenger, value: web3.utils.toWei("0.5", "ether") });
@@ -163,7 +163,6 @@ contract('Oracles', async (accounts) => {
                 } catch (e) {
                   worked = true;
                 }
-                console.log('Reached here');
                 assert(worked, "Cannot call funds twice");
               }
             }
@@ -214,7 +213,6 @@ contract('Oracles', async (accounts) => {
               } catch (e) {
                 worked = true;
               }
-              console.log('Reached here 2');
               assert(worked, "Flight not delayed, so no claims");
             }
           });

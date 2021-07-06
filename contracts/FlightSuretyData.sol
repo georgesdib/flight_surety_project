@@ -18,14 +18,16 @@ contract FlightSuretyData is Ownable {
     mapping(address => bool) private authorizedContracts;
     mapping(address => uint8) private registeredAirlines;  // 0: not registered, 1: registered but have not paid
                                                            // 2: registered and paid
-    mapping(bytes32 => InsuranceAgreement[]) insurances;
-    mapping(address => uint256) insurancePayouts;
+    mapping(bytes32 => InsuranceAgreement[]) private insurances;
+    mapping(address => uint256) private insurancePayouts;
 
     uint256 private constant airlineFee = 10 ether;
     uint256 private constant maxInsuranceFee = 1 ether;
 
     event AirlineRegistered(address airline);
     event AirlineFunded(address airline);
+    event InsureeCredited(address insuree, uint256 amount);
+    event InsuracePayoutWithdrawn(address insured, uint256 insuranceValue);
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -159,12 +161,16 @@ contract FlightSuretyData is Ownable {
     function creditInsurees(bytes32 flight) external requireIsOperational requireAuthorised {
         uint arrayLength = insurances[flight].length;
         for (uint i = 0; i < arrayLength; i++) {
-            insurancePayouts[insurances[flight][i].insuredPassenger] = 
-                insurances[flight][i].insuredAmount * 3 / 2; //1.5 multiplier
+            InsuranceAgreement memory agreement = insurances[flight][i];
+            uint256 amount = agreement.insuredAmount * 3 / 2; //1.5 multiplier
+            address key = agreement.insuredPassenger;
+            insurancePayouts[key] = amount;
+
+            emit InsureeCredited(key,  amount);
         }
 
         // Clean up the insurance
-        delete insurances[flight];
+        delete(insurances[flight]);
     }
     
 
@@ -178,6 +184,8 @@ contract FlightSuretyData is Ownable {
         require(insuranceValue > 0, "No funds to pay");
         delete insurancePayouts[insured];
         insured.transfer(insuranceValue);
+
+        emit InsuracePayoutWithdrawn(insured, insuranceValue);
     }
 
    /**

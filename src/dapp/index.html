@@ -40,9 +40,24 @@
             <label class="form">Airline</label> <input type="text" id="airline-address"> <btn class="btn btn-primary" id="register-airline">Register Airline</btn>
         </div>
         <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+            <label class="form">Flight Name</label> <input type="text" id="flight-name">
+            <label class="form">Flight Time</label> <input type="text" id="flight-time">
+            <btn class="btn btn-primary top-5" id="register-flight">Register Flight</btn>
+            <btn class="btn btn-primary top-5" id="buy-insurance">Buy Insurance</btn>
+            <btn class="btn btn-primary top-5" id="submit-oracle">Submit to Oracles</btn>
         </div>
+        <btn class="btn btn-primary top-20" id="claim-insurace">Claim Insurance</btn>
     </main>
+    <div class="container">
+        <h2>Transaction History<span id="ftc-history"></span></h2>
+        <div>
+            <ul id="txt-events">
+                <!-- Events will appear here from app.js -->
+            </ul>
+            <br>
+            <hr>
+        </div>
+    </div>
 
 </body>
 

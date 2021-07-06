@@ -8,9 +8,6 @@ export default class Contract {
 
         this.config = Config[network];
         this.initialize(callback);
-        this.owner = null;
-        this.airlines = [];
-        this.passengers = [];
     }
 
     initialize(callback) {
@@ -22,56 +19,76 @@ export default class Contract {
         window.ethereum.request({ method: 'eth_requestAccounts' });
 
         this.web3.eth.getAccounts((error, accts) => {
-            this.owner = accts[0];
-
-            let counter = 1;
-
-            while (this.airlines.length < 5) {
-                this.airlines.push(accts[counter++]);
+            if (error) {
+                console.error('Failed to get accounts: ', error);
+            } else {
+                callback();
             }
-
-            while (this.passengers.length < 5) {
-                this.passengers.push(accts[counter++]);
-            }
-
-            callback();
-        });
-
-        // Handle events
-        this.flightSuretyApp.events.allEvents(null, (error, result) => {
-            this.handleEvent(result);
-        });
-        this.flightSuretyData.events.allEvents(null, (error, result) => {
-            this.handleEvent(result);
         });
     }
 
-    handleEvent(result) {
+    addEventsListener(callback) {
+        // Handle events
+        this.flightSuretyApp.events.allEvents(null, (error, result) => {
+            this.handleEvent(result, callback);
+        });
+        this.flightSuretyData.events.allEvents(null, (error, result) => {
+            this.handleEvent(result, callback);
+        });
+    }
+
+    handleEvent(result, callback) {
         console.log('Event emitted');
+        let text;
+        let statusCode = null;
         switch(result.event) {
-            case 'OracleRequest':
-                console.log(`\n\nOracle Requested: index: ${result.args.index.toNumber()}, flight:  ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}`);
+            case 'InsureeCredited':
+                text = 'Insuree ' + result.returnValues['insuree'] + ' paid out ' +
+                    this.web3.utils.fromWei(result.returnValues['amount'], "ether") + ' ETH';
                 break;
-            case 'FlightStatusInfo':
-                console.log(`\n\nFlight Status Available: flight: ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}, status: ${result.args.status.toNumber() == STATUS_CODE_ON_TIME ? 'ON TIME' : 'DELAYED'}`);
+            case 'InsuracePayoutWithdrawn':
+                text = result.returnValues['insured'] + ' has withdrawn ' +
+                    this.web3.utils.fromWei(result.returnValues['insuranceValue'], "ether") + ' ETH';
+                break;
+            case 'OracleRequest':
+                text = 'Oracle Requested: index: ' + result.returnValues['index'] + ', flight: ' +
+                    result.returnValues['flight'] + ', time: ' + result.returnValues['timestamp'] +
+                    ', airline: ' + result.returnValues['airline'];
                 break;
             case 'OracleReport':
-                console.log(`\n\nUnverifired Flight Status Available: flight: ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}, status: ${result.args.status.toNumber() == STATUS_CODE_ON_TIME ? 'ON TIME' : 'DELAYED'}, nbVotes: ${result.args.nbVotes.toNumber()}`);
+                text = 'Oracle Reported: airline: ' + result.returnValues['airline'] + ', flight: ' +
+                    result.returnValues['flight'] + ', time: ' + result.returnValues['timestamp'] +
+                    ', with : ' + result.returnValues['nbVotes'] + ' votes';
+                break;
+            case 'FlightStatusInfo':
+                text = 'Flight Status Info: airline: ' + result.returnValues['airline'] + ' flight: ' +
+                    result.returnValues['flight'] + ', time: ' + result.returnValues['timestamp'] +
+                    ' with status: ' + result.returnValues['status'];
+                statusCode = result.returnValues['status'];
                 break;
             case 'AirlinePreRegistered':
-                alert('Pre registration: Received ' + result.returnValues['votes'] + ' votes so far');
+                text = 'Pre registration: Received ' + result.returnValues['votes'] + ' votes so far';
                 break;
-            case 'AirlineFunded':
-                alert('Airline Funded!');
+            case 'FlightRegistered':
+                text = 'Flight ' + result.returnValues['flight'] + ' at time ' + result.returnValues['timestamp'] + ' from airline '
+                    + result.returnValues['airline'] + ' is registered';
                 break;
-            case 'AirlineRegistered':
-                alert('Airline is registered');
+            case 'InsuranceBought':
+                text = result.returnValues['customer'] + ' has bought insurance for ' +
+                    result.returnValues['flightName'] + ' flying at ' + result.returnValues['flightTime'] +
+                    ' on airline ' + result.returnValues['airline'] + ' in the amount of ' +
+                    this.web3.utils.fromWei(result.returnValues['amount'], "ether");
+                break;
+            default:
+                text = result.event;
                 break;
         }
 
         console.log(result);
-    }
 
+        callback(text + '. Tx Hash: ' + result.transactionHash, statusCode);
+    }
+    
     fundAirline(callback) {
         let self = this;
         this.web3.eth.getAccounts((error, accts) => {
@@ -87,6 +104,20 @@ export default class Contract {
         });
     }
 
+    claimInsurance(callback) {
+        let self = this;
+        this.web3.eth.getAccounts((error, accts) => {
+            if (error) {
+                console.error(error);
+                callback(error, null);
+            } else {
+                self.flightSuretyApp.methods
+                .claimInsurance()
+                .send({from: accts[0]}, callback);
+            }
+        });
+    }
+
     registerAirline(airline, callback) {
         let self = this;
         this.web3.eth.getAccounts((error, accts) => {
@@ -96,56 +127,94 @@ export default class Contract {
             } else {
                 self.flightSuretyApp.methods
                 .registerAirline(airline)
-                .send({from: accts[0]})
-                .on('receipt', (receipt) => {
-                    callback(null, receipt);
-                }).on('error', (error, receipt) => {
-                    callback(error, receipt);
-                });
+                .send({from: accts[0]}, callback);
+            }
+        });
+    }
+
+    registerFlight(flightName, flightTime, callback) {
+        let self = this;
+        this.web3.eth.getAccounts((error, accts) => {
+            if (error) {
+                console.error(error);
+                callback(error, null);
+            } else {
+                self.flightSuretyApp.methods
+                .registerFlight(flightName, flightTime)
+                .send({from: accts[0]}, callback);
+            }
+        });
+    }
+
+    buyInsurance(flightName, flightTime, airline, amount, callback) {
+        let self = this;
+        let amountWei = this.web3.utils.toWei(amount, "ether");
+        this.web3.eth.getAccounts((error, accts) => {
+            if (error) {
+                console.error(error);
+                callback(error, null);
+            } else {
+                self.flightSuretyApp.methods
+                .buyInsurance(airline, flightName, flightTime)
+                .send({from: accts[0], value: amountWei}, callback);
             }
         });
     }
 
     isAppOperational(callback) {
-        let self = this;
-        self.flightSuretyApp.methods
-            .isOperational()
-            .call({ from: self.owner }, callback);
+        this.flightSuretyApp.methods.isOperational().call(null, callback);
     }
 
     isDataOperational(callback) {
-        let self = this;
-        self.flightSuretyData.methods
-            .isOperational()
-            .call({ from: self.owner }, callback);
+        this.flightSuretyData.methods.isOperational().call(null, callback);
     }
 
     setAppOperatingStatus(mode, callback) {
         let self = this;
-        self.flightSuretyApp.methods
-            .setOperatingStatus(mode)
-            .send({ from: self.owner }, callback);
+        this.web3.eth.getAccounts((error, accts) => {
+            if (error) {
+                console.error(error);
+                callback(error, null);
+            } else {
+                self.flightSuretyApp.methods
+                .setOperatingStatus(mode)
+                .send({ from: accts[0] }, callback);
+            }
+        });
     }
 
     setDataOperatingStatus(mode, callback) {
         let self = this;
-        self.flightSuretyData.methods
-            .setOperatingStatus(mode)
-            .send({ from: self.owner }, callback);
+        this.web3.eth.getAccounts((error, accts) => {
+            if (error) {
+                console.error(error);
+                callback(error, null);
+            } else {
+                self.flightSuretyData.methods
+                .setOperatingStatus(mode)
+                .send({from: accts[0]}, callback);
+            }
+        });
     }
 
-    fetchFlightStatus(flight, callback) {
+    fetchFlightStatus(airline, flightName, flightTime, callback) {
         let self = this;
         let payload = {
-            airline: self.airlines[0],
-            flight: flight,
-            timestamp: Math.floor(Date.now() / 1000)
+            airline: airline,
+            flight: flightName,
+            timestamp: flightTime
         }
-        console.log('airline: ', payload.airline);
-        self.flightSuretyApp.methods
-            .fetchFlightStatus(payload.airline, payload.flight, payload.timestamp)
-            .send({ from: self.owner }, (error, result) => {
-                callback(error, payload);
-            });
+        this.web3.eth.getAccounts((error, accts) => {
+            if (error) {
+                console.error(error);
+                callback(error, null);
+            } else {
+                self.flightSuretyApp.methods
+                .fetchFlightStatus(payload.airline, payload.flight, payload.timestamp)
+                .send({from: accts[0]}, (error, result) => {
+                    callback(error, payload);
+                });
+            }
+        });
     }
 }

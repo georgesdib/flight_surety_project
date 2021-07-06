@@ -16,6 +16,10 @@ body {
     margin-top: 20px;
 }
 
+.top-5 {
+    margin-top: 5px;
+}
+
 h5 {
     color: #999999;
 }
@@ -37,8 +41,13 @@ label.form {
     font-size: 14px;
     margin-right: 20px;
 }
+
 input {
     margin-right: 30px;
+}
+
+btn {
+    margin-right: 10px;
 }
 
 .widgets-container {

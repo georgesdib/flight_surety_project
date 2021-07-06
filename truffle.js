@@ -1,6 +1,4 @@
-var HDWalletProvider = require("@truffle/hdwallet-provider");
-var mnemonic = "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat";
-const Web3 = require('web3');
+const HDWalletProvider = require("@truffle/hdwallet-provider");
 
 module.exports = {
   networks: {

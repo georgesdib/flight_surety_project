@@ -68,3 +68,5 @@ Talk about bug in nonce
 
 
 mention the websocket thing
+
+ResponeInfo responses changed to a mapping to guarantee that an oracle votes once

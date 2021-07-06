@@ -38,7 +38,7 @@ contract FlightSuretyApp is Ownable {
     event FlightRegistered(string flight, uint256 timestamp, address airline);
     event AirlineRegistered(address airline);
     event AirlinePreRegistered(address airline, uint8 votes);
-    event InsuranceBought(address airline, string flightName, uint256 flightTime, address customer);
+    event InsuranceBought(address airline, string flightName, uint256 flightTime, address customer, uint256 amount);
  
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -170,7 +170,7 @@ contract FlightSuretyApp is Ownable {
 
         dataContract.buy{value: msg.value}(msg.sender, key);
 
-        emit InsuranceBought(airline, flightName, flightTime, msg.sender);
+        emit InsuranceBought(airline, flightName, flightTime, msg.sender, msg.value);
     }
 
     /**
@@ -247,13 +247,17 @@ contract FlightSuretyApp is Ownable {
     struct ResponseInfo {
         address requester;                              // Account that requested status
         bool isOpen;                                    // If open, oracle responses are accepted
-        mapping(uint8 => address[]) responses;          // Mapping key is the status code reported
-                                                        // This lets us group responses and identify
-                                                        // the response that majority of the oracles
+        mapping(uint8 =>                                // Mapping key is the status code reported
+            mapping(address => bool)) responses;        // This lets us group responses and identify
+        mapping(uint8 => uint256) nbResponses;          // the response that majority of the oracles
+        // I have changed that from array to mapping(address => bool) to guarantee that one oracle
+        // votes only one. This meant that I needed to add the nbResponses mapping because we cannot
+        // get the length of the responses[key] mapping unlike an array                                      
+                                                        
     }
 
     // Track all oracle responses
-    // Key = hash(index, flight, timestamp)
+    // Key = hash(index, airline, flight, timestamp)
     mapping(bytes32 => ResponseInfo) private oracleResponses;
 
     // Event fired each time an oracle submits a response
@@ -303,13 +307,17 @@ contract FlightSuretyApp is Ownable {
 
         bytes32 key = getFlightKey(index, airline, flight, timestamp);
         require(oracleResponses[key].isOpen, "Flight or timestamp do not match oracle request");
-
-        oracleResponses[key].responses[statusCode].push(msg.sender);
+        
+        require(!oracleResponses[key].responses[statusCode][msg.sender],
+            "Oracle voted already");
+        oracleResponses[key].responses[statusCode][msg.sender] = true;
+        uint256 n = oracleResponses[key].nbResponses[statusCode];
+        oracleResponses[key].nbResponses[statusCode] = n + 1;
 
         // Information isn't considered verified until at least MIN_RESPONSES
         // oracles respond with the *** same *** information
-        emit OracleReport(airline, flight, timestamp, statusCode, oracleResponses[key].responses[statusCode].length);
-        if (oracleResponses[key].responses[statusCode].length >= MIN_RESPONSES) {
+        emit OracleReport(airline, flight, timestamp, statusCode, oracleResponses[key].nbResponses[statusCode]);
+        if (oracleResponses[key].nbResponses[statusCode] >= MIN_RESPONSES) {
 
             emit FlightStatusInfo(airline, flight, timestamp, statusCode);
 
