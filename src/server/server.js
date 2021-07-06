@@ -11,6 +11,7 @@ let flightSuretyApp = new web3.eth.Contract(FlightSuretyApp.abi, config.appAddre
 
 let oracles = new Map();
 let status = 0; // start with unknown
+let random_status = true; // Randomly select the status
 
 
 flightSuretyApp.events.OracleRequest(null, (error, event) => {
@@ -54,12 +55,14 @@ function registerOracles() {
 
 function submitOracleResponseForIndex(index, airline, flightName, flightTime) {
   console.log('Submitting request for airline: ', airline, ' flightName: ', flightName,
-    ' flightTime: ', flightTime, ' index: ', index, ' status: ', status);
+    ' flightTime: ', flightTime, ' index: ', index);
   for (let [address, indexes] of oracles) {
     if (indexes.includes(index)) {
       // Estimating the gas here does not work, presumably because the code path depends on the status
       // being returned. The error is very mysterious and hard to debug ...
-      flightSuretyApp.methods.submitOracleResponse(index, airline, flightName, flightTime, status)
+      let statusCode = generateIndex();
+      console.log('Oracle: ', address, ' is submitting status: ', statusCode);
+      flightSuretyApp.methods.submitOracleResponse(index, airline, flightName, flightTime, statusCode)
         .send({ from: address, gas: 500000 })  // Went a bit overboard with gas to be safe
         .catch((err) => {
           console.error('Failed to submit for index: ', index, ' oracle: ',
@@ -70,14 +73,32 @@ function submitOracleResponseForIndex(index, airline, flightName, flightTime) {
   }
 };
 
+function generateIndex() {
+  // random returns a number between 0 and 1, multiply by 6, gets it to between 0 and 6
+  // floor it to return integers only, and max it with 5 to avoid having 6, then
+  // multiply by 10
+  if (random_status) {
+    return Math.max(Math.floor(Math.random() * 6), 5) * 10;
+  }
+  return status
+}
+
 
 const app = express();
 // use /?status=10 to change status code to 10
 app.get('/', (req, res) => {
   let statusCode = req.query['status'];
-  console.log('setting status to: ', statusCode);
-  status = parseInt(statusCode);
-  res.send('Status code set to: ' + status.toString());
+  if (statusCode) {
+    console.log('setting status to: ', statusCode);
+    status = parseInt(statusCode);
+    res.send('Status code set to: ' + status.toString());
+  }
+  let random = req.query['randomStatus'];
+  if (random) {
+    console.log('Setting random status to: ', random);
+    random_status = (random === 'true');
+    res.send('Random Status set to: ' + random_status);
+  }
 })
 
 app.get('/status', (req, res) => {
