@@ -32,7 +32,7 @@ function registerOracles() {
     } else {
       // Register from index 10 to index 30
       for (let i = 10; i < 30; i++) {
-        // Had to bump up gas because of out of gas exception
+        // Estimate gas and use 25% more to have a margin
         flightSuretyApp.methods.registerOracle().estimateGas({ from: accts[i], value: web3.utils.toWei('1', 'ether')})
         .then((gas) => {
           let gasLimit = Math.floor(gas * 1.25);
@@ -57,17 +57,15 @@ function submitOracleResponseForIndex(index, airline, flightName, flightTime) {
     ' flightTime: ', flightTime, ' index: ', index, ' status: ', status);
   for (let [address, indexes] of oracles) {
     if (indexes.includes(index)) {
+      // Estimating the gas here does not work, presumably because the code path depends on the status
+      // being returned. The error is very mysterious and hard to debug ...
       flightSuretyApp.methods.submitOracleResponse(index, airline, flightName, flightTime, status)
-      .estimateGas({ from: address}).then((gas) => {
-        let gasLimit = Math.floor(gas * 1.25);
-        flightSuretyApp.methods.submitOracleResponse(index, airline, flightName, flightTime, status)
-          .send({ from: address, gas: 500000 })
-          .catch((err) => {
-            console.error('Failed to submit for index: ', index, ' oracle: ',
-              address, ' with indexes: ', indexes);
-            console.error(err);
-          })
-      }).catch((err) => console.error('Failed to estimate gas: ', err));
+        .send({ from: address, gas: 500000 })  // Went a bit overboard with gas to be safe
+        .catch((err) => {
+          console.error('Failed to submit for index: ', index, ' oracle: ',
+            address, ' with indexes: ', indexes);
+          console.error(err);
+        })
     }
   }
 };
