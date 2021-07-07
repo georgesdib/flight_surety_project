@@ -13,18 +13,6 @@ const STATUS_CODE_LATE_WEATHER = 30;
 const STATUS_CODE_LATE_TECHNICAL = 40;
 const STATUS_CODE_LATE_OTHER = 50;
 
-handleEvent = (result) => {
-  if (result.event === 'OracleRequest') {
-    console.log(`\n\nOracle Requested: index: ${result.args.index.toNumber()}, flight:  ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}`);
-  } else if (result.event === "FlightStatusInfo") {
-    console.log(`\n\nFlight Status Available: flight: ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}, status: ${result.args.status.toNumber() == STATUS_CODE_ON_TIME ? 'ON TIME' : 'DELAYED'}`);
-  } else if (result.event === "OracleReport") {
-    console.log(`\n\nUnverifired Flight Status Available: flight: ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}, status: ${result.args.status.toNumber() == STATUS_CODE_ON_TIME ? 'ON TIME' : 'DELAYED'}, nbVotes: ${result.args.nbVotes.toNumber()}`);
-  } else {
-    console.log(result.event);
-  }
-}
-
 contract('Oracles', async (accounts) => {
 
   var config;
@@ -35,10 +23,6 @@ contract('Oracles', async (accounts) => {
 
     await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
     await config.flightSuretyApp.fundAirline({ from: config.firstAirline, value: web3.utils.toWei("10", "ether") });
-
-    //await config.flightSuretyApp.allEvents(null).on('data', (result) => {
-    //  handleEvent(result);
-    //});
   });
 
   it('can register oracles', async () => {
@@ -152,11 +136,9 @@ contract('Oracles', async (accounts) => {
                 const gasPrice = new BN(tx.gasPrice);
                 const value = new BN(web3.utils.toWei("0.75", "ether"));  // 1.5 * 0.5
                 const final = new BN(await web3.eth.getBalance(passenger));
-                // If this piece of code is reached twice, it should not trigger the payout twice
-                // the below assert should still be true on all passages
                 assert.equal((final.add(gasPrice.mul(gasUsed)).sub(value)).toString(), initial.toString(), "Must be equal");
               } else {
-                // Should fail
+                // Should fail, as passenger should not be able to claim twice
                 let worked = false;
                 try {
                   await config.flightSuretyApp.claimInsurance({ from: passenger });

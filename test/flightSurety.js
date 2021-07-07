@@ -8,7 +8,6 @@ contract('Flight Surety Tests', async (accounts) => {
   before('setup contract', async () => {
     config = await Test.Config(accounts);
     await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
-    await config.flightSuretyApp.fundAirline({from: config.firstAirline, value: web3.utils.toWei("10", "ether")});
   });
 
   /****************************************************************************************/
@@ -61,8 +60,7 @@ contract('Flight Surety Tests', async (accounts) => {
       try 
       {
           await config.flightSuretyData.testOperational();
-      }
-      catch(e) {
+      } catch(e) {
           reverted = true;
       }
       assert(reverted, "Access not blocked for requireIsOperational");      
@@ -78,13 +76,77 @@ contract('Flight Surety Tests', async (accounts) => {
     let newAirline = accounts[2];
 
     // ACT
+    let reverted = false;
+    try {
+        await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
+    } catch (e)  {
+        reverted = true;
+    }
+    assert(reverted, "Cannot register an airline from a non funded airline");
+
+    // Now fund the airline
+    await config.flightSuretyApp.fundAirline({ from: config.firstAirline, value: web3.utils.toWei("10", "ether") });
+    // This should succeed
     await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
     let result = await config.flightSuretyData.isAirline.call(newAirline);
 
     // ASSERT
-    assert(!result, "Airline should not be able to register another airline if it hasn't provided funding");
+    assert(!result, "Only becomes a fully fledged airline after funding itself");
 
   });
- 
+  
+  it('(airline) can register up to 3 other airlines', async () => {
+    let newAirline = accounts[2];
+    let newAirline2 = accounts[3];
+    let newAirline3 = accounts[4];
 
+    await config.flightSuretyApp.fundAirline({ from: newAirline, value: web3.utils.toWei("10", "ether") });
+    await config.flightSuretyApp.registerAirline(newAirline2, {from: newAirline});
+    await config.flightSuretyApp.fundAirline({ from: newAirline2, value: web3.utils.toWei("10", "ether") });
+    result = await config.flightSuretyData.isAirline.call(newAirline2);
+
+    assert(result, "Airline should be able to register another airline");
+
+    await config.flightSuretyApp.registerAirline(newAirline3, {from: newAirline2});
+    await config.flightSuretyApp.fundAirline({ from: newAirline3, value: web3.utils.toWei("10", "ether") });
+    result = await config.flightSuretyData.isAirline.call(newAirline3);
+
+    assert(result, "Airline should be able to register another airline");
+  });
+
+  it('(airline) can register the 5th and subsequent airlines with multi party concensus', async () => {
+    let newAirline = accounts[2];
+    let newAirline2 = accounts[3];
+    let newAirline3 = accounts[4];
+    let newAirline4 = accounts[5];
+
+    // 1st vote, need 3
+    await config.flightSuretyApp.registerAirline(newAirline4, {from: newAirline3});
+    let reverted = false;
+    try {
+        await config.flightSuretyApp.fundAirline({ from: newAirline4, value: web3.utils.toWei("10", "ether") });
+    } catch (e) {
+        reverted = true;
+    }
+
+    assert(reverted, "Airline needs multi party concensus to register 5th airplane");
+
+    // 2nd vote
+    await config.flightSuretyApp.registerAirline(newAirline4, {from: newAirline});
+    reverted = false;
+    try {
+        await config.flightSuretyApp.fundAirline({ from: newAirline4, value: web3.utils.toWei("10", "ether") });
+    } catch (e) {
+        reverted = true;
+    }
+
+    assert(reverted, "Airline needs multi party concensus to register 5th airplane");
+
+    // 3rd and final vote
+    await config.flightSuretyApp.registerAirline(newAirline4, {from: newAirline2});
+    await config.flightSuretyApp.fundAirline({ from: newAirline4, value: web3.utils.toWei("10", "ether") });
+    let result = await config.flightSuretyData.isAirline.call(newAirline4);
+
+    assert(result, "Airline should be able to register 5th airplane through multi party concensus");
+  });
 });
