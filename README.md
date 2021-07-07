@@ -97,4 +97,4 @@ To be able to catch events, I need to enable websockets in the web3 provider, I 
 
 I also amended the ResponeInfo responses field to a mapping as opposed to an array to guarantee that an oracle votes once, and avoid sybil attacks where one oracle keeps on voting.
 
-I have also added a video showing how to interact with the contract.
+I have also added a video showing how to interact with the contract, this was added to git lfs.
