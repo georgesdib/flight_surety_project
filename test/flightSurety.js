@@ -140,6 +140,15 @@ contract('Flight Surety Tests', async (accounts) => {
         reverted = true;
     }
 
+    // Same airplane voting again should not count as an extra vote
+    await config.flightSuretyApp.registerAirline(newAirline4, {from: newAirline});
+    reverted = false;
+    try {
+        await config.flightSuretyApp.fundAirline({ from: newAirline4, value: web3.utils.toWei("10", "ether") });
+    } catch (e) {
+        reverted = true;
+    }
+
     assert(reverted, "Airline needs multi party concensus to register 5th airplane");
 
     // 3rd and final vote

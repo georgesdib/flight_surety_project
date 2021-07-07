@@ -31,7 +31,9 @@ contract FlightSuretyApp is Ownable {
     }
     mapping(bytes32 => Flight) private flights;
 
-    mapping(address => uint8) private airlines;
+    // Needs to be a mapping to make sure an airline cannot vote twice
+    mapping(address => mapping(address => bool)) private airlines;
+    mapping(address => uint8) private airlineVotes;
     uint256 private totalNumberAirlines = 1; // We always start with one airline registered
 
     event InsuranceClaimPaid(address);
@@ -113,14 +115,18 @@ contract FlightSuretyApp is Ownable {
         }
 
         // 5th and subsequent airline need 50% of the votes of all registered airlines
-        airlines[airline]++; // One more vote
-        if (airlines[airline] > totalNumberAirlines / 2) {
-            _registerAirline(airline);
-            return (true, airlines[airline]);
+        if (!airlines[airline][msg.sender]) { // This airline has not voted yet
+            airlines[airline][msg.sender] = true; // Voted
+            airlineVotes[airline]++;
+
+            if (airlineVotes[airline] > totalNumberAirlines / 2) {
+                _registerAirline(airline);
+                return (true, airlineVotes[airline]);
+            }
         }
 
-        emit AirlinePreRegistered(airline, airlines[airline]);
-        return (false, airlines[airline]);
+        emit AirlinePreRegistered(airline, airlineVotes[airline]);
+        return (false, airlineVotes[airline]);
     }
 
     function _registerAirline(address airline) internal {
