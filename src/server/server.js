@@ -105,6 +105,10 @@ app.get('/status', (req, res) => {
   res.send('Status code is: ' + status.toString());
 })
 
+app.get('/random', (req, res) => {
+  res.send('The random flag is: ' + random_status.toString());
+})
+
 registerOracles()
 
 export default app;

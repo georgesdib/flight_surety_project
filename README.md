@@ -60,6 +60,24 @@ To view and interact with the server:
 
 `http://localhost:3000`
 
+When deploying the server, it initially registers 20 oracles, and then starts listening for events. The initial status code by default is 0, which represents the unknown state.
+
+You can check the status code that the server is sending by querying in the browser:
+
+`http://localhost:3000/status`
+
+To set the status code to 20 for example, you would do:
+
+`http://localhost:3000/?status=20`
+
+You can also have the status code to be random by doing:
+
+`http://localhost:3000/?randomStatus=true`
+
+And querying the state by doing:
+
+`http://localhost:3000/random`
+
 ## Deploy
 
 To build dapp for prod:
@@ -78,3 +96,5 @@ The scaffoling code had a bug in the nonce to generate random indexes, increasin
 To be able to catch events, I need to enable websockets in the web3 provider, I did that in truffle.js
 
 I also amended the ResponeInfo responses field to a mapping as opposed to an array to guarantee that an oracle votes once, and avoid sybil attacks where one oracle keeps on voting.
+
+I have also added a video showing how to interact with the contract.
